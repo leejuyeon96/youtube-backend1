@@ -15,12 +15,12 @@ import java.util.Date;
 @DynamicInsert
 public class Channel {
 
+
     @Id
     @Column(name="CHANNEL_CODE")
     @GeneratedValue(strategy = GenerationType.IDENTITY, generator = "channelSequence")
     @SequenceGenerator(name = "channelSequence", sequenceName = "SEQ_CHANNEL", allocationSize = 1)
     private int channelCode;
-
     @Column(name = "CHANNEL_NAME")
     private String channelName;
 
