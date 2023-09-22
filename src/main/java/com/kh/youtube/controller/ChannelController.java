@@ -1,21 +1,32 @@
 package com.kh.youtube.controller;
 
 import com.kh.youtube.domain.Channel;
+import com.kh.youtube.domain.Member;
 import com.kh.youtube.domain.Subscribe;
 import com.kh.youtube.domain.Video;
 import com.kh.youtube.service.ChannelService;
 import com.kh.youtube.service.SubscribeService;
 import com.kh.youtube.service.VideoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/*")
 public class ChannelController {
+
+    @Value("${spring.servlet.multipart.location}") // application.properties에 있는 변수
+    private String uploadPath;
 
     @Autowired
     private ChannelService channelService;
@@ -41,8 +52,29 @@ public class ChannelController {
 
     // 채널 추가 POST - http://localhost:8081/api/channel
     @PostMapping("/channel")
-    public ResponseEntity<Channel> makeChannel(@RequestBody Channel channel) {
-        return ResponseEntity.status(HttpStatus.OK).body(channelService.create(channel));
+    public ResponseEntity<Channel> makeChannel(String name, String desc, MultipartFile photo) {
+        String originalPhoto = photo.getOriginalFilename();
+        String realPhoto = originalPhoto.substring(originalPhoto.lastIndexOf("/")+1);
+        String uuid = UUID.randomUUID().toString();
+        String savePhoto = uploadPath + File.separator + uuid + "_" + realPhoto;
+        Path pathPhoto = Paths.get(savePhoto);
+
+        try {
+            photo.transferTo(pathPhoto);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        Channel vo = new Channel();
+        vo.setChannelPhoto(savePhoto);
+        vo.setChannelName(name);
+        vo.setChannelDesc(desc);
+        Member member = new Member();
+        member.setId("test");
+        vo.setMember(member);
+
+//        return  ResponseEntity.status(HttpStatus.OK).build();
+        return ResponseEntity.status(HttpStatus.OK).body(channelService.create(vo));
     }
 
     // 채널 수정 PUT - http://localhost:8081/api/channel

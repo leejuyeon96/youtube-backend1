@@ -5,16 +5,29 @@ import com.kh.youtube.service.CommentLikeService;
 import com.kh.youtube.service.VideoCommentService;
 import com.kh.youtube.service.VideoLikeService;
 import com.kh.youtube.service.VideoService;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/*")
+@Log4j2
+@CrossOrigin(origins = {"*"}, maxAge = 6000)
 public class VideoController {
+    @Value("${spring.servlet.multipart.location}") // application.properties에 있는 변수
+    private String uploadPath;
+
     @Autowired
     private VideoService videoService;
 
@@ -35,8 +48,55 @@ public class VideoController {
 
     // 영상 추가 POST - http://localhost:8081/api/video
     @PostMapping("/video")
-    public ResponseEntity<Video> createVideo(@RequestBody Video video) {
-        return ResponseEntity.status(HttpStatus.OK).body(videoService.create(video));
+    public ResponseEntity<Video> createVideo(MultipartFile video, MultipartFile image, String title, String desc, String categoryCode) {
+        log.info("video : " + video);
+        log.info("image : " + image);
+        log.info("title : " + title);
+        log.info("desc : " + desc);
+        log.info("categoryCode : " + categoryCode);
+        // video_title, video_desc, video_url, video_photo, category_code
+
+        // 업로드 처리
+        // 비디오의 실제 파일 이름
+        String originalVideo = video.getOriginalFilename();
+        String originalImage = image.getOriginalFilename();
+        log.info("original : " + originalVideo);
+        String realVideo = originalVideo.substring(originalVideo.lastIndexOf("/")+1);
+        String realImage = originalImage.substring(originalImage.lastIndexOf("/")+1);
+
+        log.info("realVideo : " + realVideo);
+
+        // UUID
+        String uuid = UUID.randomUUID().toString();
+
+        // 실제로 저장할 파일 명 (위치 포함)
+        String saveVideo = uploadPath + File.separator + uuid + "_" + realVideo;
+        Path pathVideo = Paths.get(saveVideo);
+        String saveImage = uploadPath + File.separator + uuid + "_" + realImage;
+        Path pathImage = Paths.get(saveImage);
+        try {
+            video.transferTo(pathVideo);
+            image.transferTo(pathImage);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        Video vo = new Video();
+        vo.setVideoTitle(title);
+        vo.setVideoDesc(desc);
+        vo.setVideoUrl(saveVideo);
+        vo.setVideoPhoto(saveImage);
+        Category category = new Category();
+        category.setCategoryCode(Integer.parseInt(categoryCode));
+        vo.setCategory(category);
+        Channel channel = new Channel();
+        channel.setChannelCode(22);
+        vo.setChannel(channel);
+        Member member = new Member();
+        member.setId("test");
+        vo.setMember(member);
+
+//        return ResponseEntity.status(HttpStatus.OK).build();
+        return ResponseEntity.status(HttpStatus.OK).body(videoService.create(vo));
     }
 
     // 영상 수정 PUT - http://localhost:8081/api/video
